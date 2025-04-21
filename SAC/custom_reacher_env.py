@@ -29,7 +29,7 @@ class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
         self.init_qvel = self.data.qvel.ravel().copy()
         self.phase = 0
         self.current_step = 0
-        self.max_steps = 1000
+        self.max_steps = 500
 
         # 只查找 site id
         self.s_fingertip = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE,  "fingertip")
@@ -54,28 +54,25 @@ class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
         fingertip = obs[4:6]
         done = False
 
-        # 阶段1：先碰object
         if self.phase == 0:
-            dist = np.linalg.norm(fingertip - obs[6:8])
-            reward = -dist
-            if dist < 0.02:
-                reward += 10.0
+            dist_obj = np.linalg.norm(fingertip - obs[6:8])
+            reward = -10.0 * dist_obj
+            if dist_obj < 0.05:
+                reward += 20.0
                 if self.only_first_phase:
                     done = True
                     return obs, reward, done, False, {}
                 self.phase = 1
         else:
-            # 阶段2：碰target
-            dist = np.linalg.norm(fingertip - obs[8:10])
-            reward = -dist
-            if dist < 0.02:
-                reward += 10.0
+            dist_tgt = np.linalg.norm(fingertip - obs[8:10])
+            reward = -10.0 * dist_tgt
+            if dist_tgt < 0.05:
+                reward += 20.0
+                done = True
 
-        reward -= 0.01 * np.sum(np.square(action))
+        reward -= 0.005 * np.sum(np.square(action))
         if self.current_step >= self.max_steps:
             reward -= 5.0
-            done = True
-        if not self.only_first_phase and self.phase == 1 and dist < 0.02:
             done = True
 
         return obs, reward, done, False, {}

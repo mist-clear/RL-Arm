@@ -12,7 +12,7 @@ class SACAgentEvaluator:
         self.n_actions = self.env.action_space.shape[0]
         self.n_episode = n_episode
         self.random = random
-        self.model = Network(self.n_states, self.n_actions * 2, hidden_dim=256)
+        self.model = Network(self.n_states, self.n_actions * 2, hidden_dim=128)
         if not self.random:
             self.model.load_state_dict(torch.load(model_path))
             self.model.eval()

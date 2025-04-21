@@ -13,7 +13,7 @@ Rollout = namedtuple('Rollout', ['state', 'action', 'reward', 'next', 'done'])
 
 class SACAgent:
     def __init__(self, env, lr=1e-3, gamma=0.99, soft_update_tau=0.01,
-                 memory_size=2000, hidden_size=64, log_std_range=[-20,2]):
+                 memory_size=2000, hidden_size=128, log_std_range=[-20,2]):
         # Initialise dimensions and learning parameters
         self.env = env
         self.n_states = self.env.observation_space.shape[0]
@@ -134,7 +134,8 @@ class SACAgent:
             with torch.no_grad():
                 actions, _ = self.get_action_prob(state)
                 
-        actions = np.array(actions).reshape(-1) 
+        actions = np.array(actions).reshape(-1)
+        actions = actions * 0.5 
         return actions
         
     # get information from batch
@@ -209,13 +210,13 @@ class SACAgent:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epos', type=int, default=1000, required=False)
+    parser.add_argument('--epos', type=int, default=500, required=False)
     args = parser.parse_args()
     epos = args.epos
 
     env = CustomReacherEnv(render_mode=None)
     agent = SACAgent(env, lr=3e-4, gamma=0.99, memory_size=5000, hidden_size=256)
-    learning_data = agent.train(n_episode=epos, batch_size=200, report_freq=10)
+    learning_data = agent.train(n_episode=epos, batch_size=64, report_freq=10)
     actor = os.path.join('models/actor_' + str(epos) + '.pt')
     torch.save(agent.actor.state_dict(), actor)
 
