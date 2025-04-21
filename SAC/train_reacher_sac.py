@@ -215,7 +215,7 @@ def main():
     epos = args.epos
 
     env = CustomReacherEnv(render_mode=None)
-    agent = SACAgent(env, lr=3e-4, gamma=0.99, memory_size=5000, hidden_size=256)
+    agent = SACAgent(env, lr=3e-4, gamma=0.99, memory_size=20000, hidden_size=256)
     learning_data = agent.train(n_episode=epos, batch_size=64, report_freq=10)
     actor = os.path.join('models/actor_' + str(epos) + '.pt')
     torch.save(agent.actor.state_dict(), actor)

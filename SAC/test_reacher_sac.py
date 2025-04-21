@@ -12,7 +12,7 @@ class SACAgentEvaluator:
         self.n_actions = self.env.action_space.shape[0]
         self.n_episode = n_episode
         self.random = random
-        self.model = Network(self.n_states, self.n_actions * 2, hidden_dim=128)
+        self.model = Network(self.n_states, self.n_actions * 2, hidden_dim=256)
         if not self.random:
             self.model.load_state_dict(torch.load(model_path))
             self.model.eval()
@@ -31,6 +31,7 @@ class SACAgentEvaluator:
                 z = normal.sample()
                 action = torch.tanh(z)
             action = action.detach().numpy()
+            action = action * 0.5
         return action
     
     def evaluate(self):
@@ -50,7 +51,7 @@ class SACAgentEvaluator:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default="models/actor_1000.pt")
+    parser.add_argument('--model', type=str, default="models/actor_500.pt")
     parser.add_argument('--rand', type=bool, default=False)
     parser.add_argument('--epos', type=int, default=50)
     args = parser.parse_args()

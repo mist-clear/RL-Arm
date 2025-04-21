@@ -6,8 +6,7 @@ from gymnasium.spaces import Box
 from gymnasium.envs.mujoco import MujocoEnv
 
 class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
-    def __init__(self, render_mode=None, only_first_phase=True):
-        self.only_first_phase = only_first_phase
+    def __init__(self, render_mode=None):
         xml_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "custom_reacher.xml")
         )
@@ -29,7 +28,7 @@ class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
         self.init_qvel = self.data.qvel.ravel().copy()
         self.phase = 0
         self.current_step = 0
-        self.max_steps = 500
+        self.max_steps = 300
 
         # 只查找 site id
         self.s_fingertip = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE,  "fingertip")
@@ -53,24 +52,41 @@ class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
 
         fingertip = obs[4:6]
         done = False
+        reward = 0
 
+        # 阶段1：寻找object
         if self.phase == 0:
             dist_obj = np.linalg.norm(fingertip - obs[6:8])
-            reward = -10.0 * dist_obj
-            if dist_obj < 0.05:
-                reward += 20.0
-                if self.only_first_phase:
-                    done = True
-                    return obs, reward, done, False, {}
+            # 奖励设计：距离变近有奖励，远离有惩罚
+            reward += -dist_obj
+            # 如果距离比上一步缩短，额外奖励
+            if hasattr(self, "last_dist_obj") and dist_obj < self.last_dist_obj:
+                reward += 0.2
+            self.last_dist_obj = dist_obj
+
+            # 接触object
+            if dist_obj < 0.02:
+                print("Pick object!")
+                reward += 10.0
                 self.phase = 1
         else:
+            # 阶段2：寻找target
             dist_tgt = np.linalg.norm(fingertip - obs[8:10])
-            reward = -10.0 * dist_tgt
-            if dist_tgt < 0.05:
-                reward += 20.0
+            reward += -dist_tgt
+            if hasattr(self, "last_dist_tgt") and dist_tgt < self.last_dist_tgt:
+                reward += 0.2
+            self.last_dist_tgt = dist_tgt
+
+            # 接触target
+            if dist_tgt < 0.02:
+                reward += 10.0
+                print("Place object!")
                 done = True
 
+        # 动作惩罚
         reward -= 0.005 * np.sum(np.square(action))
+
+        # 超时惩罚
         if self.current_step >= self.max_steps:
             reward -= 5.0
             done = True

@@ -1,7 +1,7 @@
-<mujoco model="reacher">
+<mujoco model="reacher-v4">
   <compiler angle="radian" inertiafromgeom="true"/>
   <default>
-    <joint armature="1" damping="1" limited="true"/>
+    <joint armature="1" damping="5" limited="true"/> <!-- 增加关节阻尼 -->
     <geom contype="0" friction="1 0.1 0.1" rgba="0.7 0.7 0 1"/>
   </default>
   <option gravity="0 0 -9.81" integrator="RK4" timestep="0.01"/>
@@ -17,7 +17,7 @@
     <geom fromto="0 0 0 0 0 0.02" name="root" rgba="0.9 0.4 0.6 1" size=".011" type="cylinder"/>
     <body name="body0" pos="0 0 0.01">
       <geom fromto="0 0 0 0.1 0 0" name="link0" rgba="0.0 0.4 0.6 1" size=".01" type="capsule"/>
-      <joint name="joint0" type="hinge" axis="0 0 1" pos="0 0 0" limited="false"/>
+      <joint name="joint0" type="hinge" axis="0 0 1" pos="0 0 0" limited="true" range="-3.0 3.0"/> <!-- 限制旋转范围 -->
       <body name="body1" pos="0.1 0 0">
         <joint name="joint1" type="hinge" axis="0 0 1" pos="0 0 0" range="-3.0 3.0" limited="true"/>
         <geom fromto="0 0 0 0.1 0 0" name="link1" rgba="0.0 0.4 0.6 1" size=".01" type="capsule"/>
@@ -28,14 +28,14 @@
       </body>
     </body>
     
-    <!-- 只保留 site，不用 body/joint/inertial -->
+    <!-- 目标点定义 -->
     <site name="object" pos="0 0 0.01" size="0.01" rgba="1 0 0 1"/>
     <site name="target" pos="0 0 0.01" size="0.01" rgba="0 1 0 1"/>
     
   </worldbody>
   
   <actuator>
-    <motor joint="joint0" ctrllimited="true" ctrlrange="-1.0 1.0" gear="200.0"/>
-    <motor joint="joint1" ctrllimited="true" ctrlrange="-1.0 1.0" gear="200.0"/>
+    <motor joint="joint0" ctrllimited="true" ctrlrange="-0.5 0.5" gear="200.0"/> <!-- 限制控制信号范围 -->
+    <motor joint="joint1" ctrllimited="true" ctrlrange="-0.5 0.5" gear="200.0"/>
   </actuator>
 </mujoco>
