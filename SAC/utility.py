@@ -1,5 +1,7 @@
 import random
 from collections import deque
+import gym
+import numpy as np
 from torch import nn
 
 
@@ -23,10 +25,8 @@ class Memory:
         for _ in range(size):
             action = env.action_space.sample()
             step_result = env.step(action)
-            # 兼容 step 返回4或5个值
             if isinstance(step_result, tuple) and len(step_result) >= 4:
                 next_state, reward, done = step_result[:3]
-                # 若有truncated等，done = done or truncated
                 if len(step_result) > 4:
                     truncated = step_result[3]
                     done = done or truncated

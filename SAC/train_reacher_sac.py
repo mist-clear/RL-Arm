@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import namedtuple
 import torch
+from custom_reacher_env import CustomReacherEnv
 import gymnasium as gym
 from utility import Network,Memory
 from torch import nn,optim
@@ -116,8 +117,6 @@ class SACAgent:
         min_q_values = torch.min(q_values1, q_values2)
         # minq-alpha
         policy_loss = -(min_q_values-self.alpha * log_prob).mean()
-
-        
         return policy_loss, log_prob
     
     def temperature_loss(self, log_prob):
@@ -138,7 +137,6 @@ class SACAgent:
         actions = np.array(actions).reshape(-1) 
         return actions
         
-
     # get information from batch
     def unpack_batch(self, samples):
         batch_data = list(map(list, zip(*samples)))
@@ -177,7 +175,6 @@ class SACAgent:
         self.update_target_networks(tau=self.tau)
         return torch.min(critic_loss1, critic_loss2).item(), actor_loss.item(), alpha_loss.item()
     
-
     def train(self, n_episode=250, initial_memory=None,
               report_freq=10, batch_size=32):
         # Initialize memory with random samples
@@ -192,7 +189,6 @@ class SACAgent:
             eps_reward = 0
 
             while not (done or truncated):
-                
                 action = self._choose_action(state)
                 nextstate, reward, done, truncated, _ = self.env.step(action)
                 roll = Rollout(state, action, reward, nextstate, done)
@@ -202,8 +198,6 @@ class SACAgent:
                 samples = self.memory.sample_batch(batch_size)
                 
                 critic_loss, actor_loss, alpha_loss = self.learn(samples)
-
-                
                 eps_reward += reward
             results.append(eps_reward)
                 
@@ -212,37 +206,22 @@ class SACAgent:
                 print(f'Episode {i}/{n_episode} \t Reward: {eps_reward:.4f} \t Critic Loss: {critic_loss:.3f}\t '+
                       f'Actor Loss: {actor_loss:.3f}\t Alpha Loss: {alpha_loss:.3f}\t Alpha: {self.alpha.item():.4f}')
         return results
-    
 
-if __name__ == "__main__":
-    N_EP = 1000
-    env_name = "Reacher-v4"
-    env = gym.make(env_name)
-    agent = SACAgent(env, lr=3e-4, gamma=0.99, memory_size=5000, hidden_size=256)
-    learning_data = agent.train(n_episode=N_EP, batch_size=200, report_freq=10)
-    algo = 'gym_'+env_name.replace('-','_')+'_'
-    actor = os.path.join('actor_'+algo+'.pt')
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str,help="name of the environment e.g 'Reacher-v4'",default='Reacher-v4',required=False)
-    parser.add_argument('--epos', type=int,help="number of epochs",default=1000,required=False)
-    
-    args= parser.parse_args()
-    env_name = args.env
+    parser.add_argument('--epos', type=int, default=1000, required=False)
+    args = parser.parse_args()
     epos = args.epos
 
-    env = gym.make(env_name)
+    env = CustomReacherEnv(render_mode=None)
     agent = SACAgent(env, lr=3e-4, gamma=0.99, memory_size=5000, hidden_size=256)
     learning_data = agent.train(n_episode=epos, batch_size=200, report_freq=10)
-    algo = 'gym_'+env_name.replace('-','_')+'_'
-    actor = os.path.join('models/actor_'+algo+'_'+str(epos)+
-                         '.pt')
-    torch.save(agent.actor.state_dict(),actor)
+    actor = os.path.join('models/actor_' + str(epos) + '.pt')
+    torch.save(agent.actor.state_dict(), actor)
 
-    plt.plot(learning_data,label='Reward over episodes')
+    plt.plot(learning_data, label='Reward over episodes')
     plt.grid()
     plt.show()
-
 
 if __name__ == "__main__":
     main()
