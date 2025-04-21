@@ -15,14 +15,31 @@ class Memory:
         return random.sample(self.memory, batch_size)
 
     def initialise_memory(self, env, size):
-        state,_ = env.reset()
+        result = env.reset()
+        if isinstance(result, tuple):
+            state = result[0]
+        else:
+            state = result
         for _ in range(size):
             action = env.action_space.sample()
-            next_state, reward, done,truncated, _ = env.step(action)
+            step_result = env.step(action)
+            # 兼容 step 返回4或5个值
+            if isinstance(step_result, tuple) and len(step_result) >= 4:
+                next_state, reward, done = step_result[:3]
+                # 若有truncated等，done = done or truncated
+                if len(step_result) > 4:
+                    truncated = step_result[3]
+                    done = done or truncated
+            else:
+                next_state, reward, done = step_result
             rollout = (state, action, reward, next_state, done)
             self.store_rollout(rollout)
             if done:
-                state,_ = env.reset()
+                result = env.reset()
+                if isinstance(result, tuple):
+                    state = result[0]
+                else:
+                    state = result
             else:
                 state = next_state
 

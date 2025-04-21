@@ -47,7 +47,7 @@ class SACAgentEvaluator:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str,help="path to model (.pt)",default="models/model.pt",required=False)
+    parser.add_argument('--model', type=str,help="path to model (.pt)",default="models/SAC_model.pt",required=False)
     parser.add_argument('--env', type=str,help="name of the environment e.g 'Reacher-v4'",default='Reacher-v4',required=False)
     parser.add_argument('--rand',type=bool,help="random sample",default=False,required=False)
     parser.add_argument('--epos', type=int,help="number of epochs",default=50,required=False)
