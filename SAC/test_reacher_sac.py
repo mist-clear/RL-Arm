@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import gymnasium as gym
-from utility import Network
+from sac import Network
 from custom_reacher_env import CustomReacherEnv
 import argparse
 
@@ -51,7 +51,7 @@ class SACAgentEvaluator:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default="models/actor_5000.pt")
+    parser.add_argument('--model', type=str, default="models/actor_400.pt")
     parser.add_argument('--rand', type=bool, default=False)
     parser.add_argument('--epos', type=int, default=50)
     args = parser.parse_args()

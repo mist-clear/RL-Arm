@@ -5,7 +5,7 @@ from collections import namedtuple
 import torch
 from custom_reacher_env import CustomReacherEnv
 import gymnasium as gym
-from utility import Network, Memory
+from sac import Network, Memory
 from torch import nn, optim
 import argparse
 
@@ -157,7 +157,7 @@ class SACAgent:
                 samples = self.memory.sample_batch(batch_size)
                 critic_loss, actor_loss, alpha_loss = self.learn(samples)
                 eps_reward += reward
-                if eps_reward < -30:
+                if eps_reward < -10:
                     done = True
             results.append(eps_reward)
             if i % report_freq == 0:
