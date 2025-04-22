@@ -177,12 +177,12 @@ class SACAgent:
         return torch.min(critic_loss1, critic_loss2).item(), actor_loss.item(), alpha_loss.item()
     
     def train(self, n_episode=250, initial_memory=None,
-              report_freq=10, batch_size=32):
+          report_freq=10, batch_size=32):
         # Initialize memory with random samples
         if initial_memory is None:
-            initial_memory = batch_size*4
+            initial_memory = batch_size*10
         
-        self.memory.initialise_memory(self.env,size=initial_memory)
+        self.memory.initialise_memory(self.env, size=initial_memory)
         results = []
         for i in range(n_episode):
             state, _ = self.env.reset()
@@ -205,18 +205,22 @@ class SACAgent:
             # Display progress
             if i % report_freq == 0:
                 print(f'Episode {i}/{n_episode} \t Reward: {eps_reward:.4f} \t Critic Loss: {critic_loss:.3f}\t '+
-                      f'Actor Loss: {actor_loss:.3f}\t Alpha Loss: {alpha_loss:.3f}\t Alpha: {self.alpha.item():.4f}')
+                    f'Actor Loss: {actor_loss:.3f}\t Alpha Loss: {alpha_loss:.3f}\t Alpha: {self.alpha.item():.4f}')
+            # 每10轮保存一次模型
+            if (i + 1) % 10 == 0:
+                actor_path = os.path.join('models', f'actor_{i+1}.pt')
+                torch.save(self.actor.state_dict(), actor_path)
         return results
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epos', type=int, default=500, required=False)
+    parser.add_argument('--epos', type=int, default=10000, required=False)
     args = parser.parse_args()
     epos = args.epos
 
     env = CustomReacherEnv(render_mode=None)
     agent = SACAgent(env, lr=3e-4, gamma=0.99, memory_size=20000, hidden_size=256)
-    learning_data = agent.train(n_episode=epos, batch_size=64, report_freq=10)
+    learning_data = agent.train(n_episode=epos, batch_size=64, report_freq=1)
     actor = os.path.join('models/actor_' + str(epos) + '.pt')
     torch.save(agent.actor.state_dict(), actor)
 

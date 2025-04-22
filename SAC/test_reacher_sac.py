@@ -51,7 +51,7 @@ class SACAgentEvaluator:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default="models/actor_500.pt")
+    parser.add_argument('--model', type=str, default="models/actor_5000.pt")
     parser.add_argument('--rand', type=bool, default=False)
     parser.add_argument('--epos', type=int, default=50)
     args = parser.parse_args()

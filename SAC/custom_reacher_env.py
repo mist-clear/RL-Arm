@@ -1,3 +1,4 @@
+# environments/custom_reacher_env.py  （最终版本，已将 only_first_phase 默认设为 False）
 import os
 import numpy as np
 import mujoco
@@ -6,14 +7,17 @@ from gymnasium.spaces import Box
 from gymnasium.envs.mujoco import MujocoEnv
 
 class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode=None, only_first_phase=False, max_steps=50):
+        # 仅完成第一阶段模式关闭，默认进入两阶段任务
+        self.only_first_phase = only_first_phase
         xml_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "custom_reacher.xml")
+            os.path.join(os.path.dirname(__file__), "../SAC/custom_reacher.xml")
         )
         self.frame_skip = 2
+        self.max_steps = max_steps
 
         self.observation_space = Box(-np.inf, np.inf, (10,), np.float32)
-        self.action_space      = Box(-0.5, 0.5,   (2,), np.float32)
+        self.action_space      = Box(-0.5, 0.5, (2,), np.float32)
 
         gym.utils.EzPickle.__init__(self)
         MujocoEnv.__init__(
@@ -26,99 +30,139 @@ class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
 
         self.init_qpos = self.data.qpos.ravel().copy()
         self.init_qvel = self.data.qvel.ravel().copy()
+
         self.phase = 0
         self.current_step = 0
-        self.max_steps = 300
 
-        # 只查找 site id
+        self.j_target1_x = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "target1_x")
+        self.j_target1_y = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "target1_y")
+        self.j_target2_x = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "target2_x")
+        self.j_target2_y = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "target2_y")
+
         self.s_fingertip = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE,  "fingertip")
-        self.s_object    = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE,  "object")
-        self.s_target    = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE,  "target")
+        self.s_target1   = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "target1_site")
+        self.s_target2   = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "target2_site")
+
+        self.fingertip_id = self.s_fingertip
+        self.target1_id   = self.s_target1
+        self.target2_id   = self.s_target2
+
+        self._target1_pos = np.zeros(2, dtype=np.float32)
+        self.prev_dist1   = None
+        self.prev_dist2   = None
+        self.prev_action  = None
+        self.prev_ft_pos  = None
 
     def get_obs(self):
         qpos      = self.data.qpos[:2].copy()
         qvel      = self.data.qvel[:2].copy()
         fingertip = self.data.site_xpos[self.s_fingertip][:2].copy()
-        obj       = self.data.site_xpos[self.s_object][:2].copy()
-        tgt       = self.data.site_xpos[self.s_target][:2].copy()
-        return np.concatenate([qpos, qvel, fingertip, obj, tgt])
+        t1        = self.data.site_xpos[self.s_target1][:2].copy()
+        t2        = self.data.site_xpos[self.s_target2][:2].copy()
+        return np.concatenate([qpos, qvel, fingertip, t1, t2])
 
     def step(self, action):
         action = np.clip(action, self.action_space.low, self.action_space.high)
         self.data.ctrl[:] = action
         self.do_simulation(action, self.frame_skip)
+
+        # Pin targets
+        self.data.qpos[self.j_target1_x:self.j_target1_y+1] = self._target1_pos
+        self.data.qvel[self.j_target1_x:self.j_target1_y+1] = 0.0
+        self.data.qpos[self.j_target2_x:self.j_target2_y+1] = self.init_qpos[self.j_target2_x:self.j_target2_y+1]
+        self.data.qvel[self.j_target2_x:self.j_target2_y+1] = 0.0
+        mujoco.mj_forward(self.model, self.data)
+
         obs = self.get_obs()
         self.current_step += 1
-
         fingertip = obs[4:6]
+        reward = 0.0
         done = False
-        reward = 0
 
-        # 阶段1：寻找object
+        # Stage 1: approach red ball
         if self.phase == 0:
-            dist_obj = np.linalg.norm(fingertip - obs[6:8])
-            # 奖励设计：距离变近有奖励，远离有惩罚
-            reward += -dist_obj
-            # 如果距离比上一步缩短，额外奖励
-            if hasattr(self, "last_dist_obj") and dist_obj < self.last_dist_obj:
-                reward += 0.2
-            self.last_dist_obj = dist_obj
+            dist1 = np.linalg.norm(fingertip - obs[6:8])
+            dist2 = np.linalg.norm(self.data.site_xpos[self.s_fingertip][:2]
+                               - self.data.site_xpos[self.s_target2][:2])
 
-            # 接触object
-            if dist_obj < 0.02:
-                print("Pick object!")
-                reward += 10.0
+            if self.prev_dist1 is None:
+                self.prev_dist1 = dist1
+            K1, max_inc1 = 2.0, 0.1
+            delta1 = self.prev_dist1 - dist1
+            inc1 = np.clip(max(0.0, delta1) * K1, 0.0, max_inc1)
+            reward += inc1
+            self.prev_dist1 = dist1
+            if dist1 < 0.02:
+                print("Hit red ball, transitioning to green ball phase")
+                reward += 40.0
                 self.phase = 1
-        else:
-            # 阶段2：寻找target
-            dist_tgt = np.linalg.norm(fingertip - obs[8:10])
-            reward += -dist_tgt
-            if hasattr(self, "last_dist_tgt") and dist_tgt < self.last_dist_tgt:
-                reward += 0.2
-            self.last_dist_tgt = dist_tgt
+                self.prev_dist2 = np.linalg.norm(fingertip - obs[8:10])
+                if self.only_first_phase:
+                    return obs, reward, True, False, {}
+        # Stage 2: approach green ball
+        if self.phase == 1:
+            dist2 = np.linalg.norm(fingertip - obs[8:10])
+            reward -= 0.5 * dist2
+            K2, max_inc2 = 2.0, 0.1
+            delta2 = self.prev_dist2 - dist2
+            inc2 = np.clip(max(0.0, delta2) * K2, 0.0, max_inc2)
+            reward += inc2
+            self.prev_dist2 = dist2
+            if dist2 < 0.04:
+                print("Hit green ball, ending episode")
+                reward += 80.0
+                return obs, reward, True, False, {}
 
-            # 接触target
-            if dist_tgt < 0.02:
-                reward += 10.0
-                print("Place object!")
-                done = True
+        # Penalties
+        reward -= 0.005
+        reward -= 0.02 * np.sum(np.square(action))
+        reward -= 0.005 * np.sum(np.square(self.data.qvel[:2]))
+        if self.prev_action is not None:
+            reward -= np.linalg.norm(action - self.prev_action)
+        self.prev_action = action.copy()
+        if self.prev_ft_pos is not None:
+            move_dist = np.linalg.norm(fingertip - self.prev_ft_pos)
+            if move_dist < 0.01:
+                reward -= 1.0
+        self.prev_ft_pos = fingertip.copy()
 
-        # 动作惩罚
-        reward -= 0.005 * np.sum(np.square(action))
-
-        # 超时惩罚
+        # Timeout
         if self.current_step >= self.max_steps:
-            reward -= 5.0
             done = True
 
         return obs, reward, done, False, {}
 
     def reset_model(self):
-        qpos = self.init_qpos + self.np_random.uniform(-0.1, 0.1, size=self.model.nq)
-        qvel = self.init_qvel + self.np_random.uniform(-0.1, 0.1, size=self.model.nv)
-        max_radius = 0.18
-
-        # 随机生成 object
-        r1 = self.np_random.uniform(0.05, max_radius)
-        theta1 = self.np_random.uniform(0, 2 * np.pi)
-        obj_x = r1 * np.cos(theta1)
-        obj_y = r1 * np.sin(theta1)
-
-        # 随机生成 target，确保和object距离不太近
+        qpos = self.init_qpos.copy()
+        qvel = np.zeros_like(self.init_qvel)
+        min_a, max_a = 0.1, 1.2
         while True:
-            r2 = self.np_random.uniform(0.05, max_radius)
-            theta2 = self.np_random.uniform(0, 2 * np.pi)
-            tgt_x = r2 * np.cos(theta2)
-            tgt_y = r2 * np.sin(theta2)
-            if np.linalg.norm([tgt_x - obj_x, tgt_y - obj_y]) > 0.05:
+            a0 = self.np_random.uniform(-max_a, max_a)
+            a1 = self.np_random.uniform(-max_a, max_a)
+            if abs(a0) > min_a or abs(a1) > min_a:
                 break
+        qpos[0], qpos[1] = a0, a1
 
-        # 直接设置 site 的位置
-        self.model.site_pos[self.s_object][:2] = [obj_x, obj_y]
-        self.model.site_pos[self.s_object][2] = 0.01
-        self.model.site_pos[self.s_target][:2] = [tgt_x, tgt_y]
-        self.model.site_pos[self.s_target][2] = 0.01
+        low, high = -0.27, 0.27
+        r_min, r_max = 0.1, 0.22
+        while True:
+            x = self.np_random.uniform(low, high)
+            y = self.np_random.uniform(low, high)
+            r = np.linalg.norm([x, y])
+            if r_min <= r <= r_max:
+                break
+        qpos[self.j_target1_x], qpos[self.j_target1_y] = x, y
+        self._target1_pos[:] = [x, y]
+
+        qpos[self.j_target2_x:self.j_target2_y+1] = self.init_qpos[self.j_target2_x:self.j_target2_y+1]
+
         self.set_state(qpos, qvel)
         self.phase = 0
         self.current_step = 0
-        return self.get_obs()
+        self.prev_dist1 = None
+        self.prev_dist2 = None
+        self.prev_action = None
+        self.prev_ft_pos = None
+        obs = self.get_obs()
+        self.prev_dist1 = np.linalg.norm(obs[4:6] - obs[6:8])
+        return obs
