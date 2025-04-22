@@ -163,7 +163,7 @@ class SACAgent:
             if i % report_freq == 0:
                 print(f'Episode {i}/{n_episode} \t Reward: {eps_reward:.4f} \t Critic Loss: {critic_loss:.3f}\t '+
                     f'Actor Loss: {actor_loss:.3f}\t Alpha Loss: {alpha_loss:.3f}\t Alpha: {self.alpha.item():.4f}')
-            if (i + 1) % 200 == 0:
+            if i % 200 == 0:
                 actor_path = os.path.join('models', f'actor_{i+1}_reward_{int(eps_reward)}.pt')
                 torch.save(self.actor.state_dict(), actor_path)
         return results
@@ -176,7 +176,7 @@ def main():
 
     env = CustomReacherEnv(render_mode=None)
     agent = SACAgent(env, lr=3e-4, gamma=0.99, memory_size=20000, hidden_size=256)
-    learning_data = agent.train(n_episode=epos, batch_size=64, report_freq=100)
+    learning_data = agent.train(n_episode=epos, batch_size=128, report_freq=100)
     actor = os.path.join('models/actor_' + str(epos) + '.pt')
     torch.save(agent.actor.state_dict(), actor)
 
