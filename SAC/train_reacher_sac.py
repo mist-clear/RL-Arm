@@ -200,27 +200,29 @@ class SACAgent:
                 
                 critic_loss, actor_loss, alpha_loss = self.learn(samples)
                 eps_reward += reward
+                if eps_reward < -15:
+                    done = True
             results.append(eps_reward)
                 
             # Display progress
             if i % report_freq == 0:
                 print(f'Episode {i}/{n_episode} \t Reward: {eps_reward:.4f} \t Critic Loss: {critic_loss:.3f}\t '+
                     f'Actor Loss: {actor_loss:.3f}\t Alpha Loss: {alpha_loss:.3f}\t Alpha: {self.alpha.item():.4f}')
-            # 每10轮保存一次模型
-            if (i + 1) % 10 == 0:
-                actor_path = os.path.join('models', f'actor_{i+1}.pt')
+
+            if i % 200 == 0:
+                actor_path = os.path.join('models', f'actor_{i+1}_reward_{int(eps_reward)}.pt')
                 torch.save(self.actor.state_dict(), actor_path)
         return results
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epos', type=int, default=10000, required=False)
+    parser.add_argument('--epos', type=int, default=2000000, required=False)
     args = parser.parse_args()
     epos = args.epos
 
     env = CustomReacherEnv(render_mode=None)
     agent = SACAgent(env, lr=3e-4, gamma=0.99, memory_size=20000, hidden_size=256)
-    learning_data = agent.train(n_episode=epos, batch_size=64, report_freq=1)
+    learning_data = agent.train(n_episode=epos, batch_size=32, report_freq=100)
     actor = os.path.join('models/actor_' + str(epos) + '.pt')
     torch.save(agent.actor.state_dict(), actor)
 
