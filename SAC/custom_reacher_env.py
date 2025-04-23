@@ -7,7 +7,7 @@ from gymnasium.spaces import Box
 from gymnasium.envs.mujoco import MujocoEnv
 
 class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
-    def __init__(self, render_mode=None, only_first_phase=False, max_steps=50):
+    def __init__(self, render_mode=None, only_first_phase=False, max_steps=150):
         # 仅完成第一阶段模式关闭，默认进入两阶段任务
         self.only_first_phase = only_first_phase
         xml_path = os.path.abspath(
@@ -93,14 +93,14 @@ class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
             reward += inc1
             self.prev_dist1 = dist1
             if dist1 < 0.02:
-                print("Hit red ball, transitioning to green ball phase")
-                reward += 40.0
+                # print("Hit red ball, transitioning to green ball phase")
+                reward += 10.0
                 self.phase = 1
                 self.prev_dist2 = np.linalg.norm(fingertip - obs[8:10])
                 if self.only_first_phase:
                     return obs, reward, True, False, {}
         # Stage 2: approach green ball
-        if self.phase == 1:
+        elif self.phase == 1:
             dist2 = np.linalg.norm(fingertip - obs[8:10])
             reward -= 0.5 * dist2
             K2, max_inc2 = 2.0, 0.1
@@ -110,7 +110,7 @@ class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
             self.prev_dist2 = dist2
             if dist2 < 0.04:
                 print("Hit green ball, ending episode")
-                reward += 80.0
+                reward += 20.0
                 return obs, reward, True, False, {}
 
         # Penalties
