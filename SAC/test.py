@@ -2,7 +2,7 @@ import os
 import time
 import torch
 import numpy as np
-from custom_reacher_env import CustomReacherEnv
+from env.custom_reacher_env import CustomReacherEnv
 from sac import Network
 
 def test_sac(model_path, episodes=10, render_mode="human"):
@@ -37,7 +37,7 @@ def test_sac(model_path, episodes=10, render_mode="human"):
     env.close()
 
 if __name__ == "__main__":
-    model_path = os.path.join("models/best_model.pt")
+    model_path = os.path.join("SAC/models/best_model.pt")
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found at {model_path}")
 

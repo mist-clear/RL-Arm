@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 import torch
-from custom_reacher_env import CustomReacherEnv
+from env.custom_reacher_env import CustomReacherEnv
 from sac import SACAgent
 
 def train_sac(env, agent, episodes=1000, max_steps=200, save_freq=100, plot_freq=1000, avg_window=100):
@@ -37,13 +37,13 @@ def train_sac(env, agent, episodes=1000, max_steps=200, save_freq=100, plot_freq
             if avg_reward > best_reward:
                 best_reward = avg_reward
                 os.makedirs("models", exist_ok=True)
-                torch.save(agent.actor.state_dict(), "models/best_model.pt")
+                torch.save(agent.actor.state_dict(), "sac/models/best_model.pt")
                 print(f"New best model saved with avg reward: {best_reward:.2f}")
 
         # Periodically save the model
         if (episode + 1) % save_freq == 0:
             os.makedirs("models", exist_ok=True)
-            torch.save(agent.actor.state_dict(), f"models/sac_{episode + 1}.pt")
+            torch.save(agent.actor.state_dict(), f"sac/models/sac_{episode + 1}.pt")
 
         # Periodically plot and save rewards
         if (episode + 1) % plot_freq == 0:
@@ -53,7 +53,7 @@ def train_sac(env, agent, episodes=1000, max_steps=200, save_freq=100, plot_freq
             plt.ylabel("Reward")
             plt.title("SAC Training Rewards")
             plt.grid()
-            plt.savefig(f"plots/sac_rewards_up_to_episode_{episode + 1}.png")  # Save the plot
+            plt.savefig(f"sac/plots/sac_rewards_up_to_episode_{episode + 1}.png")  # Save the plot
             plt.close()  # Close the plot to free memory
 
     return rewards, best_reward
@@ -77,5 +77,5 @@ if __name__ == "__main__":
     plt.title("SAC Training Rewards")
     plt.grid()
     os.makedirs("plots", exist_ok=True)  # Ensure the directory exists
-    plt.savefig("plots/sac_training_rewards.png")  # Save the plot as a PNG file
+    plt.savefig("sac/plots/sac_training_rewards.png")  # Save the plot as a PNG file
     plt.show()

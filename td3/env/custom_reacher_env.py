@@ -9,7 +9,7 @@ class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
     def __init__(self, render_mode=None, only_first_phase=False, max_steps=100):
         self.only_first_phase = only_first_phase
         xml_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../SAC/custom_reacher.xml")
+            os.path.join(os.path.dirname(__file__), "../assets/reacher_fixed_target.xml")
         )
         self.frame_skip = 2
         self.max_steps = max_steps
@@ -91,14 +91,14 @@ class CustomReacherEnv(MujocoEnv, gym.utils.EzPickle):
             reward += inc1
             self.prev_dist1 = dist1
             if dist1 < 0.02:
-                # print("Hit red ball, transitioning to green ball phase")
+                print("Hit red ball, transitioning to green ball phase")
                 reward += 20.0
                 self.phase = 1
                 self.prev_dist2 = np.linalg.norm(fingertip - obs[8:10])
                 if self.only_first_phase:
                     return obs, reward, True, False, {}
         # Stage 2: approach green ball
-        elif self.phase == 1:
+        if self.phase == 1:
             dist2 = np.linalg.norm(fingertip - obs[8:10])
             reward -= 0.5 * dist2
             K2, max_inc2 = 2.0, 0.1
