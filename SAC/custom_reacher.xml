@@ -1,4 +1,4 @@
-<mujoco model="reacher">
+<mujoco model="reacher-v4">
   <compiler angle="radian" inertiafromgeom="true"/>
   <default>
     <joint armature="1" damping="1" limited="true"/>
@@ -28,7 +28,6 @@
       </body>
     </body>
     
-    <!-- Movable Red Ball Object -->
     <body name="object_body" pos="0 0 0.01">
       <joint name="target1_x" type="slide" axis="1 0 0" pos="0 0 0" range="-0.13 0.13"/>
       <joint name="target1_y" type="slide" axis="0 1 0" pos="0 0 0" range="-0.13 0.13"/>
@@ -43,8 +42,6 @@
       <site name="target2_site" pos="0 0 0" size="0.005" rgba="0 1 0 1"/>
     </body>
 
-
-    
   </worldbody>
   
   <actuator>
