@@ -6,6 +6,7 @@ class ReplayBuffer:
         self.max_size = max_size
         self.ptr = 0
         self.size = 0
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Automatically select device
 
         self.state = np.zeros((max_size, state_dim), dtype=np.float32)
         self.action = np.zeros((max_size, action_dim), dtype=np.float32)
@@ -27,9 +28,9 @@ class ReplayBuffer:
         ind = np.random.randint(0, self.size, size=batch_size)
 
         return (
-            torch.FloatTensor(self.state[ind]).cuda(),
-            torch.FloatTensor(self.action[ind]).cuda(),
-            torch.FloatTensor(self.next_state[ind]).cuda(),
-            torch.FloatTensor(self.reward[ind]).cuda(),
-            torch.FloatTensor(self.not_done[ind]).cuda(),
+            torch.FloatTensor(self.state[ind]).to(self.device),  # Move to the selected device
+            torch.FloatTensor(self.action[ind]).to(self.device),
+            torch.FloatTensor(self.next_state[ind]).to(self.device),
+            torch.FloatTensor(self.reward[ind]).to(self.device),
+            torch.FloatTensor(self.not_done[ind]).to(self.device),
         )

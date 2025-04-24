@@ -4,6 +4,9 @@ import torch.nn.functional as F
 import numpy as np
 import copy
 
+# Check if GPU is available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # Actor network
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, max_action):
@@ -53,11 +56,11 @@ class Critic(nn.Module):
 # TD3 main algorithm class
 class TD3:
     def __init__(self, state_dim, action_dim, max_action):
-        self.actor = Actor(state_dim, action_dim, max_action).cuda()
+        self.actor = Actor(state_dim, action_dim, max_action).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
 
-        self.critic = Critic(state_dim, action_dim).cuda()
+        self.critic = Critic(state_dim, action_dim).to(device)
         self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-4)
 
@@ -65,7 +68,7 @@ class TD3:
         self.total_it = 0
 
     def select_action(self, state):
-        state = torch.FloatTensor(state.reshape(1, -1)).cuda()
+        state = torch.FloatTensor(state.reshape(1, -1)).to(device)
         return self.actor(state).cpu().data.numpy().flatten()
 
     def train(self, replay_buffer, batch_size=256, discount=0.99, tau=0.005,
@@ -75,6 +78,13 @@ class TD3:
 
         # Sample a batch from the replay buffer
         state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
+
+        # Move data to the appropriate device
+        state = state.to(device)
+        action = action.to(device)
+        next_state = next_state.to(device)
+        reward = reward.to(device)
+        not_done = not_done.to(device)
 
         with torch.no_grad():
             # Add noise to the target action
