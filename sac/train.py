@@ -4,7 +4,7 @@ import torch
 from env.custom_reacher_env import CustomReacherEnv
 from sac import SACAgent
 
-def train_sac(env, agent, episodes=1000, max_steps=200, save_freq=100, plot_freq=1000, avg_window=100):
+def train_sac(env, agent, episodes=1000, max_steps=200, save_freq=100, plot_freq=1000, start_episode=0, best_reward=0, avg_window=100):
     rewards = []
     recent_rewards = []  # Store rewards for calculating the moving average
     best_reward = float('-inf')  # Initialize the best reward
