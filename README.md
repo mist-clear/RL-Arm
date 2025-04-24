@@ -26,6 +26,7 @@ Ensure Mujoco is properly installed and configured. Refer to the Mujoco installa
 
 
 **Training**
+
 To train the SAC/TD3 agent:
 ```python
 python train.py
